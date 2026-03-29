@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="Dinh Dưỡng"/>
+<title>Theo dõi Dinh dưỡng</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+body{font-family:-apple-system,sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;}
+.wrap{max-width:480px;margin:0 auto;padding:16px 16px 40px;}
+.card{background:#1e293b;border-radius:16px;padding:16px;margin-bottom:12px;}
+.dark{background:#0f172a;border-radius:12px;padding:10px 12px;margin-bottom:8px;}
+.tabs{display:flex;background:#1e293b;border-radius:12px;padding:4px;margin-bottom:16px;}
+.tab{flex:1;padding:8px 0;border:none;border-radius:9px;font-weight:700;font-size:12px;cursor:pointer;background:transparent;color:#64748b;}
+.tab.active{background:#3b82f6;color:#fff;}
+.bar-wrap{background:#0f172a;border-radius:99px;height:10px;margin:10px 0 6px;overflow:hidden;}
+.bar{height:100%;border-radius:99px;transition:width .4s;}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+.macro{background:#0f172a;border-radius:10px;padding:8px 4px;text-align:center;}
+.mini-bar{background:#1e293b;border-radius:99px;height:4px;margin-top:4px;overflow:hidden;}
+input{width:100%;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:8px 10px;color:#e2e8f0;font-size:14px;outline:none;font-family:inherit;}
+input.qty{width:72px;border:2px solid #38bdf8;}
+.btn{width:100%;border:none;border-radius:10px;padding:11px 0;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;margin-bottom:6px;}
+.chip{border-radius:20px;padding:5px 12px;font-size:13px;cursor:pointer;border:1px solid #334155;background:#0f172a;color:#cbd5e1;}
+.chip.active{background:#1d4ed8;color:#fff;border:2px solid #38bdf8;font-weight:700;}
+.unit-chip{border-radius:20px;padding:4px 12px;font-size:12px;cursor:pointer;border:1px solid #334155;background:#1e293b;color:#94a3b8;}
+.unit-chip.active{background:#0369a1;color:#fff;border:2px solid #38bdf8;font-weight:700;}
+.tag{border-radius:6px;padding:2px 7px;font-size:11px;display:inline-block;}
+.group-btn{width:100%;background:#0f172a;border:none;border-radius:10px;padding:7px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;margin-bottom:0;}
+.food-entry{background:#0f172a;border-radius:12px;padding:8px 10px;margin-bottom:6px;display:flex;gap:8px;align-items:flex-start;}
+.day-header{width:100%;background:none;border:none;padding:12px 14px;cursor:pointer;text-align:left;display:flex;align-items:center;justify-content:space-between;}
+.row{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid #1e293b;}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;}
+.input-row{display:flex;gap:8px;margin-bottom:8px;align-items:flex-end;}
+.label{font-size:10px;color:#64748b;margin-bottom:4px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2 style="text-align:center;color:#38bdf8;font-size:20px;margin-bottom:4px;">🥗 Theo dõi Dinh dưỡng</h2>
+  <p style="text-align:center;font-size:12px;color:#94a3b8;margin-bottom:12px;">Mục tiêu: 2.400 kcal/ngày</p>
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('add',this)">➕ Thêm</button>
+    <button class="tab" onclick="switchTab('log',this)">📋 Nhật ký</button>
+    <button class="tab" onclick="switchTab('data',this)">💾 Dữ liệu</button>
+  </div>
+  <div id="tab-add"></div>
+  <div id="tab-log" style="display:none"></div>
+  <div id="tab-data" style="display:none"></div>
+</div>
+
+<script>
+const STORAGE_KEY = "nutrition-v1";
+const GOALS = {calories:2400,protein:150,fat:80,carbs:300};
+
+const DB = {
+  "phở bò":{cal:450,pro:28,fat:12,carb:60,fib:2,sod:1200,amt:"1 tô",units:["1 tô","2 tô","0.5 tô"],def:"1 tô",per:1},
+  "phở gà":{cal:380,pro:25,fat:8,carb:55,fib:2,sod:1100,amt:"1 tô",units:["1 tô","2 tô","0.5 tô"],def:"1 tô",per:1},
+  "bánh mì":{cal:350,pro:15,fat:12,carb:45,fib:2,sod:680,amt:"1 ổ",units:["1 ổ","2 ổ","0.5 ổ"],def:"1 ổ",per:1},
+  "trứng ốp la":{cal:93,pro:6,fat:7,carb:0.5,fib:0,sod:140,amt:"1 quả",units:["1 quả","2 quả","3 quả"],def:"2 quả",per:1},
+  "mì xào":{cal:420,pro:14,fat:15,carb:58,fib:3,sod:900,amt:"1 dĩa",units:["1 dĩa","2 dĩa"],def:"1 dĩa",per:1},
+  "trứng gà luộc":{cal:78,pro:6.3,fat:5.3,carb:0.6,fib:0,sod:62,amt:"1 quả",units:["1 quả","2 quả","3 quả","5 quả"],def:"1 quả",per:1},
+  "lòng trắng trứng":{cal:17,pro:3.6,fat:0.1,carb:0.2,fib:0,sod:55,amt:"1 cái",units:["1 cái","2 cái","3 cái","5 cái"],def:"1 cái",per:1},
+  "thịt ức gà":{cal:165,pro:31,fat:3.6,carb:0,fib:0,sod:74,amt:"100g",units:["100g","150g","200g","1 miếng (~120g)"],def:"100g",per:100},
+  "cơm trắng":{cal:136,pro:2.8,fat:0.3,carb:29,fib:0.4,sod:1,amt:"100g",units:["100g","1 bát (~150g)","2 bát (~300g)"],def:"1 bát (~150g)",per:100},
+  "bún bò":{cal:430,pro:26,fat:14,carb:52,fib:2,sod:1300,amt:"1 tô",units:["1 tô","2 tô"],def:"1 tô",per:1},
+  "cháo trắng":{cal:120,pro:2.5,fat:0.3,carb:26,fib:0.5,sod:10,amt:"1 tô",units:["1 tô","2 tô"],def:"1 tô",per:1},
+  "khoai lang luộc":{cal:86,pro:1.6,fat:0.1,carb:20,fib:3,sod:30,amt:"100g",units:["100g","1 củ (~150g)","2 củ (~300g)"],def:"100g",per:100},
+  "rau muống luộc":{cal:28,pro:3,fat:0.3,carb:4,fib:2.5,sod:45,amt:"100g",units:["100g","1 dĩa (~100g)","2 dĩa (~200g)"],def:"1 dĩa (~100g)",per:100},
+  "thịt kho":{cal:280,pro:22,fat:20,carb:3,fib:0,sod:750,amt:"100g",units:["100g","1 miếng (~100g)","2 miếng (~200g)"],def:"1 miếng (~100g)",per:100},
+  "cá kho":{cal:195,pro:26,fat:9,carb:3,fib:0,sod:820,amt:"100g",units:["100g","1 miếng (~100g)","2 miếng (~200g)"],def:"1 miếng (~100g)",per:100},
+  "canh chua cá":{cal:120,pro:14,fat:4,carb:8,fib:2,sod:600,amt:"1 tô",units:["1 tô","2 tô"],def:"1 tô",per:1},
+  "canh bí đao":{cal:25,pro:1.2,fat:0.3,carb:5,fib:1,sod:380,amt:"1 tô",units:["1 tô","2 tô"],def:"1 tô",per:1},
+  "canh bí đỏ":{cal:45,pro:1.5,fat:0.5,carb:9,fib:1.5,sod:350,amt:"1 tô",units:["1 tô","2 tô"],def:"1 tô",per:1},
+  "thịt heo luộc":{cal:242,pro:27,fat:14,carb:0,fib:0,sod:70,amt:"100g",units:["100g","150g","200g","1 miếng (~80g)"],def:"100g",per:100},
+  "thịt bò luộc":{cal:215,pro:26,fat:12,carb:0,fib:0,sod:72,amt:"100g",units:["100g","150g","200g"],def:"100g",per:100},
+  "thịt gà luộc":{cal:189,pro:28,fat:8,carb:0,fib:0,sod:82,amt:"100g",units:["100g","1 đùi (~150g)","1 ức (~120g)","200g"],def:"100g",per:100},
+  "tôm luộc":{cal:99,pro:21,fat:1.1,carb:0.9,fib:0,sod:224,amt:"100g",units:["100g","150g","200g","5 con (~50g)"],def:"100g",per:100},
+  "cải xanh luộc":{cal:22,pro:2.2,fat:0.3,carb:3.5,fib:2,sod:40,amt:"100g",units:["100g","1 dĩa (~100g)","2 dĩa (~200g)"],def:"1 dĩa (~100g)",per:100},
+  "bông cải xanh luộc":{cal:35,pro:2.4,fat:0.4,carb:7,fib:2.6,sod:41,amt:"100g",units:["100g","1 dĩa (~100g)","200g"],def:"100g",per:100},
+  "đậu que luộc":{cal:31,pro:1.8,fat:0.2,carb:7,fib:3.4,sod:6,amt:"100g",units:["100g","1 dĩa (~100g)","200g"],def:"100g",per:100},
+  "cải bó xôi luộc":{cal:23,pro:2.9,fat:0.4,carb:3.6,fib:2.4,sod:70,amt:"100g",units:["100g","1 dĩa (~100g)"],def:"1 dĩa (~100g)",per:100},
+  "chè đậu xanh":{cal:180,pro:5,fat:2,carb:35,fib:4,sod:30,amt:"1 chén",units:["1 chén","2 chén"],def:"1 chén",per:1},
+  "chuối":{cal:89,pro:1.1,fat:0.3,carb:23,fib:2.6,sod:1,amt:"1 trái",units:["1 trái","2 trái","3 trái","100g"],def:"1 trái",per:1},
+  "táo":{cal:72,pro:0.4,fat:0.2,carb:19,fib:3.3,sod:1,amt:"1 trái",units:["1 trái","2 trái","100g"],def:"1 trái",per:1},
+  "cam":{cal:62,pro:1.2,fat:0.2,carb:15,fib:3.1,sod:0,amt:"1 trái",units:["1 trái","2 trái","100g"],def:"1 trái",per:1},
+  "xoài":{cal:99,pro:1.4,fat:0.6,carb:25,fib:2.6,sod:1,amt:"100g",units:["100g","200g","0.5 trái (~150g)","1 trái (~300g)"],def:"100g",per:100},
+  "dưa hấu":{cal:30,pro:0.6,fat:0.2,carb:8,fib:0.4,sod:1,amt:"100g",units:["100g","200g","1 lát (~300g)"],def:"100g",per:100},
+  "thanh long":{cal:60,pro:1.2,fat:0,carb:13,fib:3,sod:39,amt:"100g",units:["100g","0.5 trái (~150g)","1 trái (~300g)"],def:"100g",per:100},
+  "ổi":{cal:68,pro:2.6,fat:1,carb:14,fib:5.4,sod:2,amt:"1 trái",units:["1 trái","2 trái","100g"],def:"1 trái",per:1},
+  "nho":{cal:69,pro:0.7,fat:0.2,carb:18,fib:0.9,sod:2,amt:"100g",units:["100g","1 chùm (~150g)","200g"],def:"100g",per:100},
+  "protein shake whey":{cal:120,pro:24,fat:2,carb:5,fib:0,sod:130,amt:"1 muỗng",units:["1 muỗng (~30g)","2 muỗng (~60g)"],def:"1 muỗng (~30g)",per:1},
+  "protein shake casein":{cal:110,pro:23,fat:1,carb:4,fib:1,sod:140,amt:"1 muỗng",units:["1 muỗng (~30g)","2 muỗng (~60g)"],def:"1 muỗng (~30g)",per:1},
+};
+
+const GROUPS = [
+  {label:"🍜 Món chính",keys:["phở bò","phở gà","bánh mì","mì xào","bún bò","cháo trắng","cơm trắng"]},
+  {label:"🥚 Trứng & Protein",keys:["trứng ốp la","trứng gà luộc","lòng trắng trứng","protein shake whey","protein shake casein"]},
+  {label:"🍗 Thịt luộc",keys:["thịt ức gà","thịt gà luộc","thịt heo luộc","thịt bò luộc","tôm luộc"]},
+  {label:"🥩 Món kho",keys:["thịt kho","cá kho"]},
+  {label:"🍲 Canh",keys:["canh chua cá","canh bí đao","canh bí đỏ"]},
+  {label:"🥦 Rau luộc",keys:["rau muống luộc","cải xanh luộc","bông cải xanh luộc","đậu que luộc","cải bó xôi luộc"]},
+  {label:"🍌 Trái cây",keys:["chuối","táo","cam","xoài","dưa hấu","thanh long","ổi","nho"]},
+  {label:"🍠 Khác",keys:["khoai lang luộc","chè đậu xanh"]},
+];
+
+let entries = [];
+let selectedFood = null, selectedUnit = null;
+let expandedGroups = {"🍜 Món chính":true};
+let expandedDays = {};
+let currentTab = "add";
+
+function load() { try { const s=localStorage.getItem(STORAGE_KEY); if(s) entries=JSON.parse(s); } catch {} }
+function save() { try { localStorage.setItem(STORAGE_KEY,JSON.stringify(entries)); } catch {} }
+load();
+
+function toDateKey(ts) { const d=new Date(ts); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function formatDate(k) {
+  const [y,m,d]=k.split("-").map(Number),date=new Date(y,m-1,d),today=new Date(); today.setHours(0,0,0,0);
+  const yest=new Date(today); yest.setDate(today.getDate()-1);
+  if(date.getTime()===today.getTime()) return "Hôm nay";
+  if(date.getTime()===yest.getTime()) return "Hôm qua";
+  return date.toLocaleDateString("vi-VN",{weekday:"long",day:"numeric",month:"numeric"});
+}
+function sumList(list) { return list.reduce((a,e)=>({cal:a.cal+(e.cal||0),pro:a.pro+(e.pro||0),fat:a.fat+(e.fat||0),carb:a.carb+(e.carb||0),fib:a.fib+(e.fib||0),sod:a.sod+(e.sod||0)}),{cal:0,pro:0,fat:0,carb:0,fib:0,sod:0}); }
+function pct(v,g) { return Math.min(100,Math.round(v/g*100)); }
+function barColor(p) { return p>=100?"#ef4444":p>=80?"#f97316":"#22c55e"; }
+
+function getMult(food, unit) {
+  const u=unit.toLowerCase(), nm=u.match(/^([\d.]+)/), n=nm?parseFloat(nm[1]):1;
+  if(food.per===100){ const g=u.match(/\(?([\d.]+)\s*g\)?/),ml=u.match(/\(?([\d.]+)\s*ml\)?/); if(g) return parseFloat(g[1])/100; if(ml) return parseFloat(ml[1])/100; if(u.startsWith("100")) return 1; return n; }
+  return n;
+}
+
+function cap(s) { return s.charAt(0).toUpperCase()+s.slice(1); }
+
+function addEntry(key, unit) {
+  const food=DB[key], m=getMult(food,unit);
+  entries.push({id:Date.now(),name:cap(key),amount:unit,cal:+(food.cal*m).toFixed(1),pro:+(food.pro*m).toFixed(1),fat:+(food.fat*m).toFixed(1),carb:+(food.carb*m).toFixed(1),fib:+(food.fib*m).toFixed(1),sod:+(food.sod*m).toFixed(0)});
+  save(); selectedFood=null; selectedUnit=null; render();
+}
+
+function removeEntry(id) { entries=entries.filter(e=>e.id!==id); save(); render(); }
+
+function switchTab(tab, el) {
+  currentTab=tab;
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  el.classList.add("active");
+  ["add","log","data"].forEach(t=>{ document.getElementById("tab-"+t).style.display=t===tab?"block":"none"; });
+  render();
+}
+
+function render() {
+  if(currentTab==="add") renderAdd();
+  if(currentTab==="log") renderLog();
+  if(currentTab==="data") renderData();
+}
+
+function renderAdd() {
+  const today=toDateKey(Date.now()), todayE=entries.filter(e=>toDateKey(e.id)===today), t=sumList(todayE);
+  const calPct=pct(t.cal,GOALS.calories), rem=GOALS.calories-t.cal;
+  let html=`
+  <div class="card" style="text-align:center">
+    <div style="font-size:11px;color:#64748b;margin-bottom:4px">HÔM NAY</div>
+    <div style="font-size:34px;font-weight:700;color:${calPct>=100?"#ef4444":"#38bdf8"}">${t.cal.toFixed(0)} <span style="font-size:15px;color:#94a3b8">/ 2.400 kcal</span></div>
+    <div class="bar-wrap"><div class="bar" style="width:${calPct}%;background:${barColor(calPct)}"></div></div>
+    <div style="font-size:13px;color:${rem>=0?"#86efac":"#fca5a5"}">${rem>=0?`Còn lại: ${rem.toFixed(0)} kcal`:`Vượt quá: ${Math.abs(rem).toFixed(0)} kcal`}</div>
+    <div class="grid3">
+      ${[{l:"Protein",v:t.pro,g:150,u:"g",c:"#818cf8"},{l:"Chất béo",v:t.fat,g:80,u:"g",c:"#fb923c"},{l:"Carbs",v:t.carb,g:300,u:"g",c:"#facc15"}].map(m=>`
+      <div class="macro">
+        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">${m.l}</div>
+        <div style="font-size:15px;font-weight:700;color:${m.c}">${m.v.toFixed(1)}${m.u}</div>
+        <div class="mini-bar"><div style="width:${pct(m.v,m.g)}%;height:100%;background:${m.c};border-radius:99px"></div></div>
+        <div style="font-size:10px;color:#64748b;margin-top:2px">/ ${m.g}${m.u}</div>
+      </div>`).join("")}
+    </div>
+    <div class="grid2">
+      <div class="dark" style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#94a3b8">Chất xơ</span><span style="font-size:13px;font-weight:700;color:#34d399">${t.fib.toFixed(1)} g</span></div>
+      <div class="dark" style="display:flex;justify-content:space-between"><span style="font-size:12px;color:#94a3b8">Natri</span><span style="font-size:13px;font-weight:700;color:#f472b6">${t.sod.toFixed(0)} mg</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="font-size:12px;color:#94a3b8;font-weight:600;margin-bottom:10px">✏️ Nhập thủ công</div>
+    <div class="input-row">
+      <div><div class="label">① Số lượng</div><input class="qty" id="qty" placeholder="VD: 2" onkeydown="if(event.key==='Enter')manualAdd()"/></div>
+      <div style="flex:1"><div class="label">② Tên món</div><input id="foodInput" placeholder="Tên món ăn..." onkeydown="if(event.key==='Enter')manualAdd()"/></div>
+    </div>
+    <button class="btn" style="background:#3b82f6;color:#fff" onclick="manualAdd()">➕ Thêm món</button>
+  </div>
+
+  <div class="card">
+    <div style="font-size:12px;color:#94a3b8;font-weight:600;margin-bottom:10px">⚡ Chọn nhanh</div>
+    ${GROUPS.map(g=>`
+    <div style="margin-bottom:8px">
+      <button class="group-btn" onclick="toggleGroup('${g.label}')">
+        <span style="font-size:13px;color:#94a3b8;font-weight:600">${g.label}</span>
+        <span style="color:#475569;font-size:11px">${expandedGroups[g.label]?"▲":"▼"}</span>
+      </button>
+      ${expandedGroups[g.label]?`<div style="display:flex;flex-wrap:wrap;gap:7px;padding:8px 4px 0">
+        ${g.keys.map(k=>`<button class="chip${selectedFood===k?" active":""}" onclick="selectFood('${k}')">${cap(k)}</button>`).join("")}
+      </div>`:""}
+    </div>`).join("")}
+
+    ${selectedFood?`
+    <div class="dark" style="margin-top:10px">
+      <div style="font-size:13px;font-weight:700;color:#e2e8f0;margin-bottom:8px">${cap(selectedFood)}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+        ${DB[selectedFood].units.map(u=>`<button class="unit-chip${selectedUnit===u?" active":""}" onclick="selectUnit('${u}')">${u}</button>`).join("")}
+      </div>
+      ${selectedUnit?`
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+        <span class="tag" style="background:#1e3a5f;color:#38bdf8"><b>${(DB[selectedFood].cal*getMult(DB[selectedFood],selectedUnit)).toFixed(0)}</b> kcal</span>
+        <span class="tag" style="background:#1e1b4b;color:#818cf8">P: ${(DB[selectedFood].pro*getMult(DB[selectedFood],selectedUnit)).toFixed(1)}g</span>
+        <span class="tag" style="background:#431407;color:#fb923c">F: ${(DB[selectedFood].fat*getMult(DB[selectedFood],selectedUnit)).toFixed(1)}g</span>
+        <span class="tag" style="background:#422006;color:#facc15">C: ${(DB[selectedFood].carb*getMult(DB[selectedFood],selectedUnit)).toFixed(1)}g</span>
+      </div>
+      <button class="btn" style="background:#16a34a;color:#fff" onclick="addEntry('${selectedFood}','${selectedUnit}')">✅ Thêm vào nhật ký</button>
+      `:""}
+    </div>`:""}
+  </div>`;
+  document.getElementById("tab-add").innerHTML=html;
+}
+
+function renderLog() {
+  const grouped={};
+  entries.forEach(e=>{ const k=toDateKey(e.id); if(!grouped[k]) grouped[k]=[]; grouped[k].push(e); });
+  const days=Object.keys(grouped).sort((a,b)=>b.localeCompare(a));
+  if(!days.length){ document.getElementById("tab-log").innerHTML=`<div style="text-align:center;color:#475569;padding:40px">Chưa có nhật ký nào 🍽️</div>`; return; }
+  let html=days.map(dk=>{
+    const items=grouped[dk], s=sumList(items), exp=expandedDays[dk]!==false, cp=pct(s.cal,GOALS.calories);
+    return `<div class="card" style="padding:0;overflow:hidden">
+      <button class="day-header" onclick="toggleDay('${dk}')">
+        <div><div style="font-size:14px;font-weight:700;color:#e2e8f0">${formatDate(dk)}</div><div style="font-size:11px;color:#64748b">${dk} · ${items.length} món</div></div>
+        <div style="text-align:right">
+          <div style="font-size:16px;font-weight:700;color:${cp>=100?"#ef4444":"#38bdf8"}">${s.cal.toFixed(0)} kcal</div>
+          <div style="font-size:11px;color:${cp>=100?"#fca5a5":"#86efac"}">${cp>=100?`+${(s.cal-GOALS.calories).toFixed(0)}`:`${(GOALS.calories-s.cal).toFixed(0)} còn lại`}</div>
+        </div>
+      </button>
+      <div style="height:4px;background:#0f172a;margin:0 14px"><div style="width:${cp}%;height:100%;background:${barColor(cp)};border-radius:99px"></div></div>
+      ${exp?`<div style="padding:10px 14px 14px">
+        <div class="dark">
+          <div style="font-size:11px;color:#64748b;font-weight:600;margin-bottom:6px">TỔNG DINH DƯỠNG NGÀY</div>
+          ${[["🔵 Calo",s.cal,"kcal","#38bdf8"],["🟣 Protein",s.pro,"g","#818cf8"],["🟠 Chất béo",s.fat,"g","#fb923c"],["🟡 Carbs",s.carb,"g","#facc15"],["🟢 Chất xơ",s.fib,"g","#34d399"],["🩷 Natri",s.sod,"mg","#f472b6"]].map(([l,v,u,c])=>`
+          <div class="row"><span style="font-size:12px;color:#94a3b8">${l}</span><span style="font-size:12px;font-weight:700;color:${c}">${Number(v).toFixed(1)} ${u}</span></div>`).join("")}
+        </div>
+        ${items.map(e=>`
+        <div class="food-entry">
+          <div style="flex:1">
+            <div style="font-weight:600;font-size:13px">${e.name}</div>
+            <div style="font-size:10px;color:#64748b;margin-bottom:3px">${e.amount}</div>
+            <div class="tags">
+              <span class="tag" style="background:#1e3a5f;color:#38bdf8"><b>${e.cal}</b> kcal</span>
+              <span class="tag" style="background:#1e1b4b;color:#818cf8">P:${e.pro}g</span>
+              <span class="tag" style="background:#431407;color:#fb923c">F:${e.fat}g</span>
+              <span class="tag" style="background:#422006;color:#facc15">C:${e.carb}g</span>
+            </div>
+          </div>
+          <button onclick="removeEntry(${e.id})" style="background:none;border:none;color:#475569;font-size:18px;cursor:pointer;padding:0;align-self:center">×</button>
+        </div>`).join("")}
+      </div>`:""}
+    </div>`;
+  }).join("");
+  document.getElementById("tab-log").innerHTML=html;
+}
+
+function renderData() {
+  const grouped={};
+  entries.forEach(e=>{ const k=toDateKey(e.id); if(!grouped[k]) grouped[k]=[]; grouped[k].push(e); });
+  const days=Object.keys(grouped).length;
+  document.getElementById("tab-data").innerHTML=`
+  <div class="card">
+    <div style="font-size:14px;font-weight:700;color:#e2e8f0;margin-bottom:6px">☁️ Lưu tự động</div>
+    <div style="font-size:13px;color:#94a3b8;margin-bottom:12px">Dữ liệu lưu vào bộ nhớ trình duyệt. Không mất khi đóng app.</div>
+    <div class="dark" style="display:flex;justify-content:space-between;align-items:center">
+      <span style="font-size:13px;color:#94a3b8">Tổng bản ghi</span>
+      <span style="font-size:15px;font-weight:700;color:#38bdf8">${entries.length} món · ${days} ngày</span>
+    </div>
+  </div>
+  <div class="card">
+    <div style="font-size:14px;font-weight:700;color:#e2e8f0;margin-bottom:6px">📤 Sao lưu</div>
+    <div style="font-size:13px;color:#94a3b8;margin-bottom:10px">Xuất file JSON để sao lưu. Nên làm 1 lần/tuần.</div>
+    <button class="btn" style="background:#0369a1;color:#fff" onclick="exportData()" ${entries.length===0?"disabled":""}>📥 Tải file JSON (${entries.length} bản ghi)</button>
+  </div>
+  <div class="card">
+    <div style="font-size:14px;font-weight:700;color:#e2e8f0;margin-bottom:6px">📥 Khôi phục</div>
+    <div style="font-size:13px;color:#94a3b8;margin-bottom:10px">Nhập file JSON để khôi phục dữ liệu.</div>
+    <button class="btn" style="background:#065f46;color:#fff" onclick="document.getElementById('fileInput').click()">📂 Chọn file JSON</button>
+    <input id="fileInput" type="file" accept=".json" style="display:none" onchange="importData(event)"/>
+  </div>
+  <div class="card">
+    <div style="font-size:14px;font-weight:700;color:#ef4444;margin-bottom:6px">🗑 Xóa tất cả</div>
+    <button class="btn" style="background:#7f1d1d;color:#fca5a5" onclick="clearAll()">❌ Xóa tất cả dữ liệu</button>
+  </div>`;
+}
+
+function manualAdd() {
+  const qty=document.getElementById("qty").value.trim(), name=document.getElementById("foodInput").value.trim().toLowerCase();
+  if(!name) return;
+  const found=Object.keys(DB).find(k=>name.includes(k));
+  if(!found){ alert("Không tìm thấy '"+name+"'. Hãy dùng Chọn nhanh hoặc thử tên khác."); return; }
+  const food=DB[found], n=parseFloat(qty)||1, m=food.per===1?n:1;
+  entries.push({id:Date.now(),name:cap(found),amount:qty?qty+" x "+found:food.amt,cal:+(food.cal*m).toFixed(1),pro:+(food.pro*m).toFixed(1),fat:+(food.fat*m).toFixed(1),carb:+(food.carb*m).toFixed(1),fib:+(food.fib*m).toFixed(1),sod:+(food.sod*m).toFixed(0)});
+  save(); document.getElementById("qty").value=""; document.getElementById("foodInput").value=""; render();
+}
+
+function selectFood(key) { selectedFood=selectedFood===key?null:key; selectedUnit=selectedFood?DB[key].def:null; render(); }
+function selectUnit(u) { selectedUnit=u; render(); }
+function toggleGroup(label) { expandedGroups[label]=!expandedGroups[label]; render(); }
+function toggleDay(key) { expandedDays[key]=!(expandedDays[key]!==false); render(); }
+
+function exportData() {
+  const json=JSON.stringify(entries,null,2), blob=new Blob([json],{type:"application/json"}), url=URL.createObjectURL(blob), a=document.createElement("a");
+  a.href=url; a.download="nhatky-"+new Date().toISOString().slice(0,10)+".json"; a.click(); URL.revokeObjectURL(url);
+}
+function importData(e) {
+  const file=e.target.files[0]; if(!file) return;
+  const r=new FileReader(); r.onload=ev=>{ try{ const d=JSON.parse(ev.target.result); if(Array.isArray(d)){entries=d;save();render();} }catch{alert("File không hợp lệ!");} }; r.readAsText(file); e.target.value="";
+}
+function clearAll() { if(confirm("Xóa toàn bộ? Không thể hoàn tác!")) { entries=[]; save(); render(); } }
+
+render();
+</script>
+
+</body>
+</html>
